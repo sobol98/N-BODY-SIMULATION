@@ -38,9 +38,9 @@ create function to calculate the time of the simulation with OpenMP
 
 
 #define G 6.67430e-11
-#define DELTA_TIME 1 // time step in simulation time (in seconds)
-#define T_END 1000000// how many seconds (in real time) the simulation will run
-#define N 2 // number of bodies
+#define DELTA_TIME 0.1 // time step in simulation time (in seconds)
+#define T_END 100000 // how many seconds (in real time) the simulation will run
+#define N 50 // number of bodies
 
 struct float3 {
     float x, y, z;
@@ -122,6 +122,7 @@ void resolve_colisions(Body *bodies, int n){
 
 
 void calculate_parameters(Body *bodies,int n){
+    #pragma omp parallel for schedule(static)
     for (int i = 0; i < n; i++){
         float3 acceleration = {0, 0, 0};
         float epsilon = 1e-10;
@@ -150,6 +151,7 @@ void check_and_replace_nan(float* value) {
 }
 
 void update_velocity_and_position(Body *bodies, int n){
+    #pragma omp parallel for
     for(int i = 0; i < n; i++){
 
         bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME + 0.5 * bodies[i].acceleration.x * DELTA_TIME * DELTA_TIME;
@@ -171,43 +173,35 @@ void update_velocity_and_position(Body *bodies, int n){
 
 void save_results(Body *bodies, int n, char filename[100]){
 
+    #pragma omp critical
+    {
+        FILE *file;
+        file = fopen(filename, "a");
+        //check if the file was opened
+        if(file == NULL){ 
+            printf("Error opening file\n");
+            exit(1);
+        }
+        //result format
+        for(int i = 0; i < n; i++){
+            /* format of the result: 
+            body_number mass position_x position_y position_z */
+            fprintf(file, "%d %f %f %f %f\n",i, bodies[i].mass, bodies[i].position.x, bodies[i].position.y, bodies[i].position.z);
+        }
 
-    FILE *file;
-    file = fopen(filename, "a");
-    //check if the file was opened
-    if(file == NULL){ 
-        printf("Error opening file\n");
-        exit(1);
+        fclose(file);
     }
-    //result format
-    for(int i = 0; i < n; i++){
-        /* format of the result: 
-        body_number mass position_x position_y position_z */
-        fprintf(file, "%d %f %f %f %f\n",i, bodies[i].mass, bodies[i].position.x, bodies[i].position.y, bodies[i].position.z);
-    }
-
-    fclose(file);
-
     // printf("Results saved to results.txt\n");
-}
-
-
-//print initial conditions
-void print_bodies(Body *bodies, int n){
-    for(int i = 0; i < n; i++){
-        printf("Body %d\n", i);
-        printf("Position: %f %f %f\n", bodies[i].position.x, bodies[i].position.y, bodies[i].position.z);
-        printf("Velocity: %f %f %f\n", bodies[i].velocity.x, bodies[i].velocity.y, bodies[i].velocity.z);
-        printf("Mass: %f\n", bodies[i].mass);
-    }
 };
 
 
+int main(int argc, char *argv[]){
 
-
-int main(){
-    // int simulation_time_end = T_END/DELTA_TIME;
-    int threads_number = 6;
+    if (argc != 2){
+        printf("Error: wrong number of arguments\n");
+        exit(1);
+    }
+    int threads_number = atoi(argv[1]);
 
     //set number of threads
     printf("All of threads: %d\n", omp_get_max_threads());
@@ -226,8 +220,6 @@ int main(){
     // print_bodies(bodies, N);
 
 
-
-    
     //time measurement
     clock_t start_time, end_time;
     double total_time;
@@ -242,12 +234,15 @@ int main(){
     //simulation loop
     start_time = clock();
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int t=0; t < T_END; t++){
-        calculate_parameters(bodies, N);
-        update_velocity_and_position(bodies, N);
-        // resolve_colisions(bodies, N);
-        save_results(bodies, N, filename);
+        #pragma omp parallel
+        {
+            calculate_parameters(bodies, N);
+            update_velocity_and_position(bodies, N);
+            // resolve_colisions(bodies, N);
+            // save_results(bodies, N, filename);
+        }
     }
     end_time = clock();
     total_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;

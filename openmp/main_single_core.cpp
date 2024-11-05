@@ -38,9 +38,9 @@ create function to calculate the time of the simulation with OpenMP
 
 
 #define G 6.67430e-11
-#define DELTA_TIME 1 // time step in simulation time (in seconds)
-#define T_END 1000000// how many seconds (in real time) the simulation will run
-#define N 2 // number of bodies
+#define DELTA_TIME 0.1 // time step in simulation time (in seconds)
+#define T_END 100000 // how many seconds (in real time) the simulation will run
+#define N 50 // number of bodies
 
 struct float3 {
     float x, y, z;
@@ -209,28 +209,11 @@ void print_bodies(Body *bodies, int n){
 
 
 
-
 int main(){
-    // int simulation_time_end = T_END/DELTA_TIME;
-    int threads_number = 6;
-
-    //set number of threads
-    printf("All of threads: %d\n", omp_get_max_threads());
-    
-    if (threads_number > omp_get_max_threads() || threads_number < 1){
-        printf("Error: wrong number of threads\n");
-        exit(1);
-    }
-    omp_set_num_threads(threads_number);
-    printf("Set threads: %d\n", threads_number);
-    
-
     //init and print bodies
     Body bodies[N];
     init_bodies(bodies, N);
     // print_bodies(bodies, N);
-
-
 
     
     //time measurement
@@ -251,7 +234,7 @@ int main(){
         calculate_parameters(bodies, N);
         update_velocity_and_position(bodies, N);
         // resolve_colisions(bodies, N);
-        save_results(bodies, N, filename);
+        // save_results(bodies, N, filename);
     }
     end_time = clock();
     total_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
