@@ -1,1 +1,1 @@
-# N-body-simulation-
+# N-body simulation with using OpenMP and CUDA
