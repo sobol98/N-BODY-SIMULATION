@@ -1,0 +1,15 @@
+# Ignorowanie plików binarnych i wykonywalnych
+*.exe
+*.dll
+*.so
+*.dylib
+*.out
+*.a
+*.o
+*.pyc
+*.class
+*.jar
+
+
+
+*.txt
