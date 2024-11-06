@@ -40,7 +40,7 @@ create function to calculate the time of the simulation with OpenMP
 #define G 6.67430e-11
 #define DELTA_TIME 0.1 // time step in simulation time (in seconds)
 #define T_END 100000 // how many seconds (in real time) the simulation will run
-#define N 50 // number of bodies
+#define N 100 // number of bodies
 
 struct float3 {
     float x, y, z;
@@ -122,11 +122,11 @@ void resolve_colisions(Body *bodies, int n){
 
 
 void calculate_parameters(Body *bodies,int n){
-    #pragma omp parallel for schedule(static)
     for (int i = 0; i < n; i++){
         float3 acceleration = {0, 0, 0};
         float epsilon = 1e-10;
 
+        #pragma omp parallel for //schedule(dynamic)
         for (int j = 0; j < n; j++){
             if (i != j){
 
@@ -151,9 +151,8 @@ void check_and_replace_nan(float* value) {
 }
 
 void update_velocity_and_position(Body *bodies, int n){
-    #pragma omp parallel for
+    #pragma omp parallel for //schedule(dynamic)
     for(int i = 0; i < n; i++){
-
         bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME + 0.5 * bodies[i].acceleration.x * DELTA_TIME * DELTA_TIME;
         bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME + 0.5 * bodies[i].acceleration.y * DELTA_TIME * DELTA_TIME;
         bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME + 0.5 * bodies[i].acceleration.z * DELTA_TIME * DELTA_TIME;
@@ -221,7 +220,7 @@ int main(int argc, char *argv[]){
 
 
     //time measurement
-    clock_t start_time, end_time;
+    double start_time, end_time;
     double total_time;
 
 
@@ -232,21 +231,18 @@ int main(int argc, char *argv[]){
     sprintf(filename, "results_%d-%d-%d_%d:%d:%d.txt", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec); //
 
     //simulation loop
-    start_time = clock();
+    start_time = omp_get_wtime();
 
-    // #pragma omp parallel for
+    #pragma omp parallel for num_threads(threads_number)
     for (int t=0; t < T_END; t++){
-        #pragma omp parallel
-        {
-            calculate_parameters(bodies, N);
-            update_velocity_and_position(bodies, N);
-            // resolve_colisions(bodies, N);
-            // save_results(bodies, N, filename);
-        }
+        calculate_parameters(bodies, N);
+        update_velocity_and_position(bodies, N);
+        // resolve_colisions(bodies, N);
+        // save_results(bodies, N, filename);
     }
-    end_time = clock();
-    total_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-    printf("Total time: %f\n", total_time);
+    end_time = omp_get_wtime();
+    total_time = end_time - start_time;
+    printf("Total time: %f seconds\n", total_time);
 
 
 

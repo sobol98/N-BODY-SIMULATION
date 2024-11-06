@@ -40,7 +40,7 @@ create function to calculate the time of the simulation with OpenMP
 #define G 6.67430e-11
 #define DELTA_TIME 0.1 // time step in simulation time (in seconds)
 #define T_END 100000 // how many seconds (in real time) the simulation will run
-#define N 50 // number of bodies
+#define N 100 // number of bodies
 
 struct float3 {
     float x, y, z;
