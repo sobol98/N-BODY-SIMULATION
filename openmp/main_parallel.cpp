@@ -1,32 +1,18 @@
 /*
-
-This is a simple example of OpenMP in C
-
-File path: 
-.../N-body-simulation/openmp
-
-To compile:
-gcc -fopenmp main_parallel.cpp -o main
-
-or
-
-g++ -fopenmp main.cpp -o main
-
-To run:
-./main
-
-*/
-
-
-/*
-TO DO:
-check if the number of threads is a positive integer
-check if the number of threads is less than or equal to the number of cores
-make function to print error message and stop
-
-
-create function to free the memory
-create function to calculate the time of the simulation with OpenMP
+    * This is a simple example of OpenMP in C
+    * 
+    * File path: 
+    * .../N-body-simulation/openmp
+    * 
+    * To compile:
+    * gcc -fopenmp main_parallel.cpp -o main
+    * 
+    * or
+    * 
+    * g++ -fopenmp main.cpp -o main
+    * 
+    * To run:
+    * ./main
 */
 
 #include <stdlib.h>
@@ -54,22 +40,6 @@ struct Body {
 };
 
 
-double addVectors(float3 a, float3 b){
-    return (a.x*b.x + a.y*b.y + a.z*b.z);
-}
-
-double scaleVector(double scale, float3 a){
-    return (scale*a.x, scale*a.y, scale*a.z);
-}
-
-double substractVector(float3 a, float3 b){
-    return (a.x - b.x, a.y - b.y, a.z - b.z);
-}
-
-double mod(float3 a){
-    return sqrtf(a.x*a.x + a.y*a.y + a.z*a.z);
-}
-
 
 void init_bodies(Body *bodies, int n){
 /* this function calculate initial position of the N bodies in the our empty universum*/
@@ -87,10 +57,6 @@ void init_bodies(Body *bodies, int n){
         bodies[i].velocity.y = ((rand() % 1000) - 500)*destination_parameter;
         bodies[i].velocity.z = ((rand() % 1000) - 500)*destination_parameter;
         
-        // bodies[i].acceleration.x = (rand()%20 -10);
-        // bodies[i].acceleration.y = (rand()%20 -10);
-        // bodies[i].acceleration.z = (rand()%20 -10);
-
         bodies[i].mass = (rand() % 1000 + 1) * mass_parameter;
 
     }
@@ -100,7 +66,6 @@ void resolve_colisions(Body *bodies, int n){
     for(int i = 0; i < n; i++){
         for(int j = i+1; j < n; j++){
             if(bodies[i].position.x == bodies[j].position.x && bodies[i].position.y == bodies[j].position.y && bodies[i].position.z == bodies[j].position.z){
-				// int a=0
                 
                 double temp_vx, temp_vy, temp_vz;
 
@@ -126,7 +91,7 @@ void calculate_parameters(Body *bodies,int n){
         float3 acceleration = {0, 0, 0};
         float epsilon = 1e-10;
 
-        #pragma omp parallel for //schedule(dynamic)
+        #pragma omp parallel for
         for (int j = 0; j < n; j++){
             if (i != j){
 
@@ -144,14 +109,15 @@ void calculate_parameters(Body *bodies,int n){
     }
 };
 
+//replace nan value with 0
 void check_and_replace_nan(float* value) {
     if (isnan(*value)) {
-        *value = 0.0f; // Zamiana NaN na 0
+        *value = 0.0f; 
     }
 }
 
 void update_velocity_and_position(Body *bodies, int n){
-    #pragma omp parallel for //schedule(dynamic)
+    #pragma omp parallel for
     for(int i = 0; i < n; i++){
         bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME + 0.5 * bodies[i].acceleration.x * DELTA_TIME * DELTA_TIME;
         bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME + 0.5 * bodies[i].acceleration.y * DELTA_TIME * DELTA_TIME;
@@ -183,8 +149,7 @@ void save_results(Body *bodies, int n, char filename[100]){
         }
         //result format
         for(int i = 0; i < n; i++){
-            /* format of the result: 
-            body_number mass position_x position_y position_z */
+            // format of the result: body_number mass position_x position_y position_z
             fprintf(file, "%d %f %f %f %f\n",i, bodies[i].mass, bodies[i].position.x, bodies[i].position.y, bodies[i].position.z);
         }
 
@@ -216,8 +181,6 @@ int main(int argc, char *argv[]){
     //init and print bodies
     Body bodies[N];
     init_bodies(bodies, N);
-    // print_bodies(bodies, N);
-
 
     //time measurement
     double start_time, end_time;
