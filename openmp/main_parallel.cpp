@@ -23,6 +23,7 @@
 #include <time.h>
 
 
+//-----------------structures-----------------
 #define G 6.67430e-11
 #define DELTA_TIME 0.1 // time step in simulation time (in seconds)
 #define T_END 100000 // how many seconds (in real time) the simulation will run
@@ -35,17 +36,25 @@ struct float3 {
 struct Body {
     float3 position;
     float3 velocity;
-    float3 acceleration;
     float3 force;
     float mass;
 };
+
+//-----------------functions-----------------
 
 float dot_product(float3 a) {
     return a.x * a.x + a.y * a.y + a.z * a.z;
 }
 
-void init_bodies(Body *bodies, int n){
+//replace nan value with 0
+void check_and_replace_nan(float* value) {
+    if (isnan(*value)) {
+        *value = 0.0f; 
+    }
+}
+
 /* this function calculate initial position of the N bodies in the our empty universum*/
+void init_bodies(Body *bodies, int n){
     float destination_parameter = 1.0e+4;
     float mass_parameter = 1.0e+24;
 
@@ -84,7 +93,7 @@ void init_bodies(Body *bodies, int n){
         bodies[i].mass = (rand() % 1000 + 1) * mass_parameter;
 
     }
-};
+}
 
 
 void calculate_parameters(Body *bodies,int n){
@@ -117,23 +126,12 @@ void calculate_parameters(Body *bodies,int n){
         
         bodies[i].force = f;
     }
-};
-
-//replace nan value with 0
-void check_and_replace_nan(float* value) {
-    if (isnan(*value)) {
-        *value = 0.0f; 
-    }
 }
+
 
 void update_velocity_and_position(Body *bodies, int n){
     #pragma omp parallel for
     for(int i = 0; i < n; i++){
-        // bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME + 0.5 * bodies[i].acceleration.x * DELTA_TIME * DELTA_TIME;
-        // bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME + 0.5 * bodies[i].acceleration.y * DELTA_TIME * DELTA_TIME;
-        // bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME + 0.5 * bodies[i].acceleration.z * DELTA_TIME * DELTA_TIME;
-
-
         bodies[i].velocity.x += bodies[i].force.x / bodies[i].mass * DELTA_TIME;
         bodies[i].velocity.y += bodies[i].force.y / bodies[i].mass * DELTA_TIME;
         bodies[i].velocity.z += bodies[i].force.z / bodies[i].mass * DELTA_TIME;
@@ -150,9 +148,7 @@ void update_velocity_and_position(Body *bodies, int n){
         check_and_replace_nan(&bodies[i].position.y);
         check_and_replace_nan(&bodies[i].position.z);
     }
-};
-
-
+}
 
 
 void save_results(Body *bodies, int n, char filename[100]){
@@ -174,7 +170,7 @@ void save_results(Body *bodies, int n, char filename[100]){
         fclose(file);
     }
     // printf("Results saved to results.txt\n");
-};
+}
 
 
 int main(int argc, char *argv[]){
@@ -229,6 +225,6 @@ int main(int argc, char *argv[]){
 
 
     return 0;
-};
+}
 
 
