@@ -16,9 +16,9 @@ from matplotlib.animation import FuncAnimation
 
 
 # ------------------- settings -------------------
-axis_size = 1e10
-interval_size =100
-filename='results_2024-11-5_3:32:4.txt'
+axis_size = 5e7
+interval_size =10
+filename='results.txt'
 
 
 # ------------------- main -------------------

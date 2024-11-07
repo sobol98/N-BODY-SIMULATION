@@ -9,7 +9,7 @@
     * 
     * or
     * 
-    * g++ -fopenmp main.cpp -o main
+    * g++ -fopenmp main_parallel.cpp -o main
     * 
     * To run:
     * ./main
@@ -26,7 +26,7 @@
 #define G 6.67430e-11
 #define DELTA_TIME 0.1 // time step in simulation time (in seconds)
 #define T_END 100000 // how many seconds (in real time) the simulation will run
-#define N 100 // number of bodies
+#define N 10 // number of bodies
 
 struct float3 {
     float x, y, z;
@@ -36,10 +36,13 @@ struct Body {
     float3 position;
     float3 velocity;
     float3 acceleration;
+    float3 force;
     float mass;
 };
 
-
+float dot_product(float3 a) {
+    return a.x * a.x + a.y * a.y + a.z * a.z;
+}
 
 void init_bodies(Body *bodies, int n){
 /* this function calculate initial position of the N bodies in the our empty universum*/
@@ -47,8 +50,29 @@ void init_bodies(Body *bodies, int n){
     float mass_parameter = 1.0e+24;
 
     for(int i = 0; i < n; i++){
-        //random parameters
+        //
+        
+        // //custom parameters for 3-body simimilatiom just uncomment the code below, and set numbers of bodies to 3 (#define N 3)
+        // float MASS = 1.0e+15;
+        // if (i==0) {
+        //     bodies[i].position=(float3){100.0,0.0, 0.0};
+        //     bodies[0].velocity = (float3){0.0, 10.0, 0.0};
+        //     bodies[0].mass = MASS;
+        // }
+        
+        // if (i=1) {
+        //     bodies[i].position=(float3){-100.0, 0.0, 0.0};
+        //     bodies[1].velocity = (float3){0.0, -20.0, 0.0};
+        //     bodies[1].mass = MASS;
+        // }
 
+        // if (i=2) {
+        //     bodies[i].position=(float3){0.0, 100.0, 0.0 };
+        //     bodies[2].velocity = (float3){-20.0, 0.0, 0.0};
+        //     bodies[2].mass = MASS;
+        // }
+
+        // random start parameters
         bodies[i].position.x = ((rand() % 1000) - 500)*destination_parameter;
         bodies[i].position.y = ((rand() % 1000) - 500)*destination_parameter;
         bodies[i].position.z = ((rand() % 1000) - 500)*destination_parameter;
@@ -62,50 +86,36 @@ void init_bodies(Body *bodies, int n){
     }
 };
 
-void resolve_colisions(Body *bodies, int n){
-    for(int i = 0; i < n; i++){
-        for(int j = i+1; j < n; j++){
-            if(bodies[i].position.x == bodies[j].position.x && bodies[i].position.y == bodies[j].position.y && bodies[i].position.z == bodies[j].position.z){
-                
-                double temp_vx, temp_vy, temp_vz;
-
-                temp_vx = bodies[i].velocity.x;
-                temp_vy = bodies[i].velocity.y;
-                temp_vz = bodies[i].velocity.z;
-
-                bodies[i].velocity.x = bodies[j].velocity.x;
-                bodies[i].velocity.y = bodies[j].velocity.y;
-                bodies[i].velocity.z = bodies[j].velocity.z;
-
-                bodies[j].velocity.x = temp_vx;
-                bodies[j].velocity.y = temp_vy;
-                bodies[j].velocity.z = temp_vz;
-            }
-        }
-    }
-};
-
 
 void calculate_parameters(Body *bodies,int n){
+    float epsilon = 1e-10;
+    
+    #pragma omp parallel for
     for (int i = 0; i < n; i++){
-        float3 acceleration = {0, 0, 0};
-        float epsilon = 1e-10;
+        float3 f;
+        f.x = 0.0;
+        f.y = 0.0;
+        f.z = 0.0;
 
-        #pragma omp parallel for
         for (int j = 0; j < n; j++){
             if (i != j){
 
-                float force_X = (G * bodies[i].mass * bodies[j].mass) *((bodies[i].position.x - bodies[j].position.x)+epsilon) / (pow(abs(bodies[i].position.x - bodies[j].position.x),3.0)+epsilon);
-                float force_Y = (G * bodies[i].mass * bodies[j].mass) *((bodies[i].position.y - bodies[j].position.y)+epsilon) / (pow(abs(bodies[i].position.y - bodies[j].position.y),3.0)+epsilon);
-                float force_Z = (G * bodies[i].mass * bodies[j].mass) *((bodies[i].position.z - bodies[j].position.z)+epsilon) / (pow(abs(bodies[i].position.z - bodies[j].position.z),3.0)+epsilon);
-                
-                acceleration.x += force_X/bodies[i].mass;
-                acceleration.y += force_Y/bodies[i].mass;
-                acceleration.z += force_Z/bodies[i].mass;
-                
+            float3 diff;
+            diff.x = bodies[j].position.x - bodies[i].position.x;
+            diff.y = bodies[j].position.y - bodies[i].position.y;
+            diff.z = bodies[j].position.z - bodies[i].position.z;
+
+            float dist = sqrtf(dot_product(diff)); 
+            float forceMagnitude = G * bodies[i].mass * bodies[j].mass / (dist * dist + 1e-10f);  //+ 1e-10f -> prevention of division by zero
+            
+            f.x += forceMagnitude * diff.x / dist;
+            f.y += forceMagnitude * diff.y / dist;
+            f.z += forceMagnitude * diff.z / dist;
+            
             }
-        }
-        bodies[i].acceleration = acceleration;
+        }      
+        
+        bodies[i].force = f;
     }
 };
 
@@ -119,13 +129,22 @@ void check_and_replace_nan(float* value) {
 void update_velocity_and_position(Body *bodies, int n){
     #pragma omp parallel for
     for(int i = 0; i < n; i++){
-        bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME + 0.5 * bodies[i].acceleration.x * DELTA_TIME * DELTA_TIME;
-        bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME + 0.5 * bodies[i].acceleration.y * DELTA_TIME * DELTA_TIME;
-        bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME + 0.5 * bodies[i].acceleration.z * DELTA_TIME * DELTA_TIME;
+        // bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME + 0.5 * bodies[i].acceleration.x * DELTA_TIME * DELTA_TIME;
+        // bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME + 0.5 * bodies[i].acceleration.y * DELTA_TIME * DELTA_TIME;
+        // bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME + 0.5 * bodies[i].acceleration.z * DELTA_TIME * DELTA_TIME;
 
-        bodies[i].velocity.x += bodies[i].acceleration.x * DELTA_TIME;
-        bodies[i].velocity.y += bodies[i].acceleration.y * DELTA_TIME;
-        bodies[i].velocity.z += bodies[i].acceleration.z * DELTA_TIME;
+
+        bodies[i].velocity.x += bodies[i].force.x / bodies[i].mass * DELTA_TIME;
+        bodies[i].velocity.y += bodies[i].force.y / bodies[i].mass * DELTA_TIME;
+        bodies[i].velocity.z += bodies[i].force.z / bodies[i].mass * DELTA_TIME;
+
+        bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME/2;
+        bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME/2;
+        bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME/2;
+
+        check_and_replace_nan(&bodies[i].force.x);
+        check_and_replace_nan(&bodies[i].force.y);
+        check_and_replace_nan(&bodies[i].force.z);
 
         check_and_replace_nan(&bodies[i].position.x);
         check_and_replace_nan(&bodies[i].position.y);
@@ -141,7 +160,7 @@ void save_results(Body *bodies, int n, char filename[100]){
     #pragma omp critical
     {
         FILE *file;
-        file = fopen(filename, "a");
+        file = fopen("results.txt", "a");
         //check if the file was opened
         if(file == NULL){ 
             printf("Error opening file\n");
@@ -152,7 +171,6 @@ void save_results(Body *bodies, int n, char filename[100]){
             // format of the result: body_number mass position_x position_y position_z
             fprintf(file, "%d %f %f %f %f\n",i, bodies[i].mass, bodies[i].position.x, bodies[i].position.y, bodies[i].position.z);
         }
-
         fclose(file);
     }
     // printf("Results saved to results.txt\n");
@@ -160,6 +178,7 @@ void save_results(Body *bodies, int n, char filename[100]){
 
 
 int main(int argc, char *argv[]){
+    remove("results.txt");
 
     if (argc != 2){
         printf("Error: wrong number of arguments\n");
@@ -177,7 +196,7 @@ int main(int argc, char *argv[]){
     omp_set_num_threads(threads_number);
     printf("Set threads: %d\n", threads_number);
     
-
+//---------------------------------------------- 
     //init and print bodies
     Body bodies[N];
     init_bodies(bodies, N);
@@ -200,8 +219,8 @@ int main(int argc, char *argv[]){
     for (int t=0; t < T_END; t++){
         calculate_parameters(bodies, N);
         update_velocity_and_position(bodies, N);
-        // resolve_colisions(bodies, N);
-        // save_results(bodies, N, filename);
+
+        save_results(bodies, N, filename);
     }
     end_time = omp_get_wtime();
     total_time = end_time - start_time;
