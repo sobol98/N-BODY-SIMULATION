@@ -11,3 +11,7 @@
 *.jar
 *[^.]*$
 *.txt
+
+
+#ignorowanie plików bez rozszerzenia
+*.
