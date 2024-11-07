@@ -9,7 +9,7 @@
 *.pyc
 *.class
 *.jar
-
-
 *[^.]*$
 *.txt
+main
+main1
