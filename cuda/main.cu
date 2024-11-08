@@ -6,7 +6,8 @@
     * nvcc main.cu -o main
     * 
     * To run:
-    * ./main
+    * ./main N 
+    * where N is number of bodies
 */
 
 
@@ -29,6 +30,19 @@
 #define BLOCK_SIZE 256 // idk what this is
 
 
+// CUDA error checking
+#define CUDACHECK(err) do { cuda_check((err), __FILE__, __LINE__); } while(false)
+inline void cuda_check(cudaError_t error_code, const char *file, int line)
+{
+    if (error_code != cudaSuccess)
+    {
+        fprintf(stderr, "CUDA Error %d: %s. In file '%s' on line %d\n", error_code, cudaGetErrorString(error_code), file, line);
+        fflush(stderr);
+        exit(error_code);
+    }
+}
+
+
 //---------- Structs ----------//
 struct Body {
     float3 position;
@@ -44,6 +58,14 @@ struct Body {
 __device__ float dot_product(float3 a) {
     return a.x * a.x + a.y * a.y + a.z * a.z;
 }
+
+//replace nan value with 0
+void check_and_replace_nan(float* value) {
+    if (isnan(*value)) {
+        *value = 0.0f; 
+    }
+}
+
 
 // this function calculate initial position of the N bodies in the our empty universum
 void initBodies(Body *bodies, int n) {
@@ -62,8 +84,6 @@ void initBodies(Body *bodies, int n) {
         bodies[i].mass = (rand() % 1000 + 1) * mass_parameter;                                       
     }
 }
-
-
 
 //CUDA kernel that calculates the gravitational forces acting on each body
 __global__ void calculate_parameters(Body *bodies, int n) {
@@ -91,31 +111,52 @@ __global__ void calculate_parameters(Body *bodies, int n) {
 }
 
 //CUDA kernel that updates the positions and velocities of each body based on the forces calculated.
-__global__ void updateBodies(Body *bodies, float3 *forces, int n) {
+__global__ void updateBodies(Body *bodies, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
-        bodies[i].velocity.x += forces[i].x / bodies[i].mass * DELTA_TIME;
-        bodies[i].velocity.y += forces[i].y / bodies[i].mass * DELTA_TIME;
-        bodies[i].velocity.z += forces[i].z / bodies[i].mass * DELTA_TIME;
+        bodies[i].velocity.x += bodies[i].force.x / bodies[i].mass * DELTA_TIME;
+        bodies[i].velocity.y += bodies[i].force.y / bodies[i].mass * DELTA_TIME;
+        bodies[i].velocity.z += bodies[i].force.z / bodies[i].mass * DELTA_TIME;
 
-        bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME;
-        bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME;
-        bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME;
+        bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME/2;
+        bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME/2;
+        bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME/2;
+
+
+        check_and_replace_nan(&bodies[i].force.x);
+        check_and_replace_nan(&bodies[i].force.y);
+        check_and_replace_nan(&bodies[i].force.z);
+
+        check_and_replace_nan(&bodies[i].position.x);
+        check_and_replace_nan(&bodies[i].position.y);
+        check_and_replace_nan(&bodies[i].position.z);
     }
 }
 
-// Initializes the bodies with random positions, velocities, and masses for (int i = 0; i < n; i++) {
-    
+// void save_results(Body *bodies, int n, char filename[100]){
+
+//     FILE *file;
+//     file = fopen("results.txt", "a");
+//     //check if the file was opened
+//     if(file == NULL){ 
+//         printf("Error opening file\n");
+//         exit(1);
+//     }
+//     //result format
+//     for(int i = 0; i < n; i++){
+//         // format of the result: body_number mass position_x position_y position_z
+//         fprintf(file, "%d %f %f %f %f\n",i, bodies[i].mass, bodies[i].position.x, bodies[i].position.y, bodies[i].position.z);
+//     }
+//     fclose(file);
+
+//     // printf("Results saved to results.txt\n");
+// }
 
 
-void checkCudaError(cudaError_t error) {
-    if (error != cudaSuccess) {
-        fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(error));
-        exit(-1);
-    }
-}
+
 
 int main(int argc, char **argv) {
+    
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <number of bodies>\n", argv[0]);
         exit(-1);
@@ -167,9 +208,9 @@ int main(int argc, char **argv) {
     dim3 blockSize(BLOCK_SIZE);
     dim3 gridSize((n + blockSize.x - 1) / blockSize.x);
 
-    for (int iter = 0; iter < (Tend/DT); iter++) {
-        computeForces<<<gridSize, blockSize>>>(d_bodies, d_forces, n); // Pass n as an argument
-        updateBodies<<<gridSize, blockSize>>>(d_bodies, d_forces, n); // Pass n as an argument
+    for (int iter = 0; iter < (T_END); iter++) {
+        calculate_parameters<<<gridSize, blockSize>>>(d_bodies, n); // Pass n as an argument
+        updateBodies<<<gridSize, blockSize>>>(d_bodies, n); // Pass n as an argument
         checkCudaError(cudaDeviceSynchronize());
     }
 

@@ -128,7 +128,6 @@ void calculate_parameters(Body *bodies,int n){
     }
 }
 
-
 void update_velocity_and_position(Body *bodies, int n){
     #pragma omp parallel for
     for(int i = 0; i < n; i++){
@@ -150,7 +149,6 @@ void update_velocity_and_position(Body *bodies, int n){
     }
 }
 
-
 void save_results(Body *bodies, int n, char filename[100]){
 
     #pragma omp critical
@@ -171,7 +169,6 @@ void save_results(Body *bodies, int n, char filename[100]){
     }
     // printf("Results saved to results.txt\n");
 }
-
 
 int main(int argc, char *argv[]){
     remove("results.txt");
@@ -226,5 +223,3 @@ int main(int argc, char *argv[]){
 
     return 0;
 }
-
-
