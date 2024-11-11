@@ -11,8 +11,9 @@
     * 
     * g++ -fopenmp main_parallel.cpp -o main
     * 
-    * To run:
-    * ./main
+    * To run: (N - number of bodies, X - number of threads)
+    * ./main N X 
+    * 
 */
 
 #include <stdlib.h>
@@ -27,6 +28,7 @@
 #define G 6.67430e-11
 #define DELTA_TIME 0.01 // time step in simulation time (in seconds)
 #define T_END 100000 // how many seconds (in real time) the simulation will run
+
 #define N 10 // number of bodies
 
 struct double3 {
@@ -174,11 +176,12 @@ void save_results(Body *bodies, int n, char filename[100]){
 int main(int argc, char *argv[]){
     remove("results.txt");
 
-    if (argc != 2){
+    if (argc != 3){
         printf("Error: wrong number of arguments\n");
         exit(1);
     }
-    int threads_number = atoi(argv[1]);
+    int n = atoi(argv[1]);
+    int threads_number = atoi(argv[2]);
 
     //set number of threads
     printf("All of threads: %d\n", omp_get_max_threads());
@@ -192,8 +195,10 @@ int main(int argc, char *argv[]){
     
 //---------------------------------------------- 
     //init and print bodies
-    Body bodies[N];
-    init_bodies(bodies, N);
+    // Body bodies[n];
+
+    Body *bodies = (Body *)malloc(N * sizeof(Body));
+    init_bodies(bodies, n);
 
     //time measurement
     double start_time, end_time;
@@ -211,16 +216,16 @@ int main(int argc, char *argv[]){
 
     #pragma omp parallel for num_threads(threads_number)
     for (int t=0; t < T_END; t++){
-        calculate_parameters(bodies, N);
-        update_velocity_and_position(bodies, N);
+        calculate_parameters(bodies, n);
+        update_velocity_and_position(bodies, n);
 
-        save_results(bodies, N, filename);
+        save_results(bodies, n, filename);
     }
     end_time = omp_get_wtime();
     total_time = end_time - start_time;
     printf("Total time: %f seconds\n", total_time);
 
-
+    free(bodies);
 
     return 0;
 }
