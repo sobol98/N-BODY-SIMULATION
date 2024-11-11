@@ -8,6 +8,9 @@
     * To run:
     * ./main N 
     * where N is number of bodies
+    * 
+    * To (run) profile:
+    * nvprof ./main N
 */
 
 
@@ -24,10 +27,10 @@
 
 #define G 6.67430e-11
 #define DELTA_TIME 0.01 // time step in simulation time (in seconds)
-#define T_END 100000 // how many seconds (in real time) the simulation will run
+#define T_END 100000 // how many seconds (in real time) the simsulation will run
 // #define N 10 // number of bodies
 
-#define BLOCK_SIZE 256 // idk what this is
+#define BLOCK_SIZE 256 //128, 256, 512, 1024 are common block sizes
 
 
 // CUDA error checking
@@ -90,8 +93,17 @@ void initBodies(Body *bodies, int n) {
 //CUDA kernel that calculates the gravitational forces acting on each body
 __global__ void calculate_parameters(Body *bodies, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    // int i =0;
+    
     if (i < n) {
+
+        __shared__ Body shared_bodies[BLOCK_SIZE];
+
+        if (threadIdx.x < n){
+            shared_bodies[threadIdx.x] = bodies[threadIdx.x + blockIdx.x * blockDim.x];
+        }
+
+        __syncthreads();
+
         double3 f;
         f.x =0.0f;
         f.y =0.0f;
@@ -103,12 +115,12 @@ __global__ void calculate_parameters(Body *bodies, int n) {
         for (int j = 0; j < n; j++) {
             if (i != j) {
                 double3 diff;
-                diff.x = bodies[j].position.x - bodies[i].position.x;
-                diff.y = bodies[j].position.y - bodies[i].position.y;
-                diff.z = bodies[j].position.z - bodies[i].position.z;
+                diff.x = shared_bodies[j].position.x - shared_bodies[i].position.x;
+                diff.y = shared_bodies[j].position.y - shared_bodies[i].position.y;
+                diff.z = shared_bodies[j].position.z - shared_bodies[i].position.z;
 
                 double dist = sqrtf(dot_product(diff)); //calculation of the length of the displacement vector (diagonal of 3 dimensions)
-                double forceMagnitude = G * bodies[i].mass * bodies[j].mass / (dist * dist + 1e-10f);  //+ 1e-10f -> prevent division by zero
+                double forceMagnitude = G * shared_bodies[i].mass * shared_bodies[j].mass / (dist * dist + 1e-10f);  //+ 1e-10f -> prevent division by zero
                 
                 f.x += forceMagnitude * diff.x / dist;
                 f.y += forceMagnitude * diff.y / dist;
@@ -248,30 +260,36 @@ int main(int argc, char **argv) {
 
     double start_time = clock();
 
-    // cudaStream_t stream;
-    // cudaStreamCreate(&stream);
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
 
 
 
     for (int iter = 0; iter < (T_END); iter++) {
-        calculate_parameters<<<blocks, blockSize, 0>>>(d_bodies, n);
-        CUDACHECK(cudaDeviceSynchronize());  
+        // calculate_parameters<<<blocks, blockSize, 0,stream>>>(d_bodies, n);
+        // CUDACHECK(cudaDeviceSynchronize());  
 
-        updateBodies<<<blocks, blockSize, 0>>>(d_bodies, n);
-        CUDACHECK(cudaDeviceSynchronize());
+        // updateBodies<<<blocks, blockSize, 0, stream>>>(d_bodies, n);
+        // CUDACHECK(cudaDeviceSynchronize());
+
+        calculate_parameters<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE,stream>>>(d_bodies, n);
+        // CUDACHECK(cudaDeviceSynchronize());  
+
+        updateBodies<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE, stream>>>(d_bodies, n);
+        // CUDACHECK(cudaDeviceSynchronize());  
 
 
-
-        // CUDACHECK(cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyDeviceToHost));
-        // save_results(h_bodies, n);
+        CUDACHECK(cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyDeviceToHost));
+        save_results(h_bodies, n);
+        // CUDACHECK(cudaDeviceSynchronize());  
 
 
         // calculate_parameters<<<gridSize, blockSize>>>(d_bodies, n); // Pass n as an argument
         // updateBodies<<<gridSize, blockSize>>>(d_bodies, n); // Pass n as an argument
         // checkCudaError(cudaDeviceSynchronize());
     }
-    // cudaStreamSynchronize(stream);
-    // cudaStreamDestroy(stream);
+    cudaStreamSynchronize(stream);
+    cudaStreamDestroy(stream);
 
 
     // cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyHostToDevice);

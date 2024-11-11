@@ -136,9 +136,9 @@ void update_velocity_and_position(Body *bodies, int n){
         bodies[i].velocity.y += bodies[i].force.y / bodies[i].mass * DELTA_TIME;
         bodies[i].velocity.z += bodies[i].force.z / bodies[i].mass * DELTA_TIME;
 
-        bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME/2.0f;
-        bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME/2.0f;
-        bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME/2.0f;
+        bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME / 2.0f;
+        bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME / 2.0f;
+        bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME / 2.0f;
 
         check_and_replace_nan(&bodies[i].force.x);
         check_and_replace_nan(&bodies[i].force.y);

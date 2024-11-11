@@ -248,18 +248,22 @@ int main(int argc, char **argv) {
 
     double start_time = clock();
 
-    // cudaStream_t stream;
-    // cudaStreamCreate(&stream);
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
 
 
 
     for (int iter = 0; iter < (T_END); iter++) {
-        calculate_parameters<<<blocks, blockSize, 0>>>(d_bodies, n);
-        CUDACHECK(cudaDeviceSynchronize());  
+        calculate_parameters<<<blocks, blockSize, 0,stream>>>(d_bodies, n);
+        // CUDACHECK(cudaDeviceSynchronize());  
 
-        updateBodies<<<blocks, blockSize, 0>>>(d_bodies, n);
-        CUDACHECK(cudaDeviceSynchronize());
+        updateBodies<<<blocks, blockSize, 0, stream>>>(d_bodies, n);
+        // CUDACHECK(cudaDeviceSynchronize());
 
+        // calculate_parameters<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE,stream>>>(d_bodies, n);
+        // CUDACHECK(cudaDeviceSynchronize());  
+
+        // updateBodies<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE, stream>>>(d_bodies, n);
 
 
         // CUDACHECK(cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyDeviceToHost));
@@ -270,8 +274,8 @@ int main(int argc, char **argv) {
         // updateBodies<<<gridSize, blockSize>>>(d_bodies, n); // Pass n as an argument
         // checkCudaError(cudaDeviceSynchronize());
     }
-    // cudaStreamSynchronize(stream);
-    // cudaStreamDestroy(stream);
+    cudaStreamSynchronize(stream);
+    cudaStreamDestroy(stream);
 
 
     // cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyHostToDevice);
