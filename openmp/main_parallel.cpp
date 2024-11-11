@@ -29,25 +29,25 @@
 #define T_END 100000 // how many seconds (in real time) the simulation will run
 #define N 10 // number of bodies
 
-struct float3 {
-    float x, y, z;
+struct double3 {
+    double x, y, z;
 };
 
 struct Body {
-    float3 position;
-    float3 velocity;
-    float3 force;
+    double3 position;
+    double3 velocity;
+    double3 force;
     float mass;
 };
 
 //-----------------functions-----------------
 
-float dot_product(float3 a) {
+float dot_product(double3 a) {
     return a.x * a.x + a.y * a.y + a.z * a.z;
 }
 
 //replace nan value with 0
-void check_and_replace_nan(float* value) {
+void check_and_replace_nan(double* value) {
     if (isnan(*value)) {
         *value = 0.0f; 
     }
@@ -102,7 +102,7 @@ void calculate_parameters(Body *bodies,int n){
     
     #pragma omp parallel for
     for (int i = 0; i < n; i++){
-        float3 f;
+        double3 f;
         f.x = 0.0;
         f.y = 0.0;
         f.z = 0.0;
@@ -110,13 +110,13 @@ void calculate_parameters(Body *bodies,int n){
         for (int j = 0; j < n; j++){
             if (i != j){
 
-            float3 diff;
+            double3 diff;
             diff.x = bodies[j].position.x - bodies[i].position.x;
             diff.y = bodies[j].position.y - bodies[i].position.y;
             diff.z = bodies[j].position.z - bodies[i].position.z;
 
-            float dist = sqrtf(dot_product(diff)); 
-            float forceMagnitude = G * bodies[i].mass * bodies[j].mass / (dist * dist + 1e-10f);  //+ 1e-10f -> prevention of division by zero
+            double dist = sqrtf(dot_product(diff)); 
+            double forceMagnitude = G * bodies[i].mass * bodies[j].mass / (dist * dist + 1e-10f);  //+ 1e-10f -> prevention of division by zero
             
             f.x += forceMagnitude * diff.x / dist;
             f.y += forceMagnitude * diff.y / dist;
