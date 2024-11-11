@@ -16,10 +16,10 @@ from matplotlib.animation import FuncAnimation
 
 
 # ------------------- settings -------------------
-axis_size = 5e7
-interval_size =10
-filename='results.txt'
-
+axis_size = 5e6
+interval_size =1
+filename='cuda/results.txt'
+# filename='openmp/results.txt'
 
 # ------------------- main -------------------
 data=np.loadtxt(filename)

@@ -25,7 +25,7 @@
 
 //-----------------structures-----------------
 #define G 6.67430e-11
-#define DELTA_TIME 0.1 // time step in simulation time (in seconds)
+#define DELTA_TIME 0.01 // time step in simulation time (in seconds)
 #define T_END 100000 // how many seconds (in real time) the simulation will run
 #define N 10 // number of bodies
 
@@ -55,7 +55,8 @@ void check_and_replace_nan(float* value) {
 
 /* this function calculate initial position of the N bodies in the our empty universum*/
 void init_bodies(Body *bodies, int n){
-    float destination_parameter = 1.0e+4;
+    float destination_parameter = 1.0e+2;
+    float velocity_parameter = 1.0e+0;
     float mass_parameter = 1.0e+24;
 
     for(int i = 0; i < n; i++){
@@ -86,9 +87,9 @@ void init_bodies(Body *bodies, int n){
         bodies[i].position.y = ((rand() % 1000) - 500)*destination_parameter;
         bodies[i].position.z = ((rand() % 1000) - 500)*destination_parameter;
         
-        bodies[i].velocity.x = ((rand() % 1000) - 500)*destination_parameter;
-        bodies[i].velocity.y = ((rand() % 1000) - 500)*destination_parameter;
-        bodies[i].velocity.z = ((rand() % 1000) - 500)*destination_parameter;
+        bodies[i].velocity.x = ((rand() % 1000) - 500)*velocity_parameter;
+        bodies[i].velocity.y = ((rand() % 1000) - 500)*velocity_parameter;
+        bodies[i].velocity.z = ((rand() % 1000) - 500)*velocity_parameter;
         
         bodies[i].mass = (rand() % 1000 + 1) * mass_parameter;
 
@@ -135,9 +136,9 @@ void update_velocity_and_position(Body *bodies, int n){
         bodies[i].velocity.y += bodies[i].force.y / bodies[i].mass * DELTA_TIME;
         bodies[i].velocity.z += bodies[i].force.z / bodies[i].mass * DELTA_TIME;
 
-        bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME/2;
-        bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME/2;
-        bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME/2;
+        bodies[i].position.x += bodies[i].velocity.x * DELTA_TIME/2.0f;
+        bodies[i].position.y += bodies[i].velocity.y * DELTA_TIME/2.0f;
+        bodies[i].position.z += bodies[i].velocity.z * DELTA_TIME/2.0f;
 
         check_and_replace_nan(&bodies[i].force.x);
         check_and_replace_nan(&bodies[i].force.y);
