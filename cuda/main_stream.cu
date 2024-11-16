@@ -3,11 +3,17 @@
     * .../N-body-simulation/cuda
     * 
     * To compile:
-    * nvcc main.cu -o main
+    * nvcc main_stream.cu -o main
     * 
     * To run:
     * ./main N 
     * where N is number of bodies
+    * 
+    * To (run) profile:
+    * nvprof ./main N
+    * 
+    * or
+    * nsys profile --stats=true --output=report ./main N
 */
 
 
@@ -17,17 +23,16 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 #include <sys/time.h>
-#include <cuda_runtime.h>
 
 
 //---------- Constants ----------//
 
 #define G 6.67430e-11
 #define DELTA_TIME 0.01 // time step in simulation time (in seconds)
-#define T_END 100000 // how many seconds (in real time) the simulation will run
+#define T_END 1000000 // how many seconds (in real time) the simulation will run
 // #define N 10 // number of bodies
 
-#define BLOCK_SIZE 256 // idk what this is
+#define BLOCK_SIZE 256 //128, 256, 512, 1024 are common block sizes
 
 
 // CUDA error checking
@@ -142,7 +147,7 @@ __global__ void updateBodies(Body *bodies, int n) {
     }
 }
 
-void save_results(Body *bodies, int n){ //}, char filename){
+void save_results(Body *bodies, int n){
 
     FILE *file;
     file = fopen("results.txt", "a");
@@ -219,34 +224,21 @@ int main(int argc, char **argv) {
 
     // Start recording
     cudaEventRecord(start);
+    double start_time = clock();
+
 
     Body *h_bodies = (Body*)malloc(n * sizeof(Body));  // Host bodies - CPU
     Body *d_bodies;  // Device bodies - GPU
 
     initBodies(h_bodies, n);
 
-    // cudaMemcpy(d_bodies, h_bodies, n * sizeof(Body), cudaMemcpyHostToDevice);
-
-
     CUDACHECK(cudaMalloc(&d_bodies, n * sizeof(Body)));
     CUDACHECK(cudaMemcpy(d_bodies, h_bodies, n * sizeof(Body), cudaMemcpyHostToDevice));
-
-
-    
-
-    // checkCudaError(cudaMalloc(&d_bodies, n * sizeof(Body)));
-    // checkCudaError(cudaMalloc(&d_forces, n * sizeof(float3)));
-    // checkCudaError(cudaMemcpy(d_bodies, h_bodies, n * sizeof(Body), cudaMemcpyHostToDevice));
-
-    // dim3 blockSize(BLOCK_SIZE);
-    // dim3 gridSize((n + blockSize.x - 1) / blockSize.x);
-
 
     int blockSize=BLOCK_SIZE;
     int blocks = (n + blockSize - 1) / blockSize;
 
 
-    double start_time = clock();
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -255,30 +247,15 @@ int main(int argc, char **argv) {
 
     for (int iter = 0; iter < (T_END); iter++) {
         calculate_parameters<<<blocks, blockSize, 0,stream>>>(d_bodies, n);
-        // CUDACHECK(cudaDeviceSynchronize());  
-
         updateBodies<<<blocks, blockSize, 0, stream>>>(d_bodies, n);
-        // CUDACHECK(cudaDeviceSynchronize());
-
-        // calculate_parameters<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE,stream>>>(d_bodies, n);
-        // CUDACHECK(cudaDeviceSynchronize());  
-
-        // updateBodies<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE, stream>>>(d_bodies, n);
-
-
+     
         // CUDACHECK(cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyDeviceToHost));
         // save_results(h_bodies, n);
-
-
-        // calculate_parameters<<<gridSize, blockSize>>>(d_bodies, n); // Pass n as an argument
-        // updateBodies<<<gridSize, blockSize>>>(d_bodies, n); // Pass n as an argument
-        // checkCudaError(cudaDeviceSynchronize());
     }
     cudaStreamSynchronize(stream);
     cudaStreamDestroy(stream);
 
 
-    // cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyHostToDevice);
 
     double end_time = clock();
     // Stop recording
@@ -295,12 +272,8 @@ int main(int argc, char **argv) {
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
-    // Copy data back to host for output
-    // checkCudaError(cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyDeviceToHost));
-    
+  
     cudaFree(d_bodies);
-
-
     free(h_bodies);
 
     return 0;

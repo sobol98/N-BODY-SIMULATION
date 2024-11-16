@@ -27,7 +27,7 @@
 //-----------------structures-----------------
 #define G 6.67430e-11
 #define DELTA_TIME 0.01 // time step in simulation time (in seconds)
-#define T_END 100000 // how many seconds (in real time) the simulation will run
+#define T_END 1000000 // how many steps the simulation will run
 
 #define N 10 // number of bodies
 
@@ -44,7 +44,7 @@ struct Body {
 
 //-----------------functions-----------------
 
-float dot_product(double3 a) {
+double dot_product(double3 a) {
     return a.x * a.x + a.y * a.y + a.z * a.z;
 }
 
@@ -57,7 +57,7 @@ void check_and_replace_nan(double* value) {
 
 /* this function calculate initial position of the N bodies in the our empty universum*/
 void init_bodies(Body *bodies, int n){
-    float destination_parameter = 1.0e+2;
+    float destination_parameter = 1.0e+3;
     float velocity_parameter = 1.0e+0;
     float mass_parameter = 1.0e+24;
 
@@ -99,9 +99,7 @@ void init_bodies(Body *bodies, int n){
 }
 
 
-void calculate_parameters(Body *bodies,int n){
-    float epsilon = 1e-10;
-    
+void calculate_parameters(Body *bodies,int n){    
     #pragma omp parallel for
     for (int i = 0; i < n; i++){
         double3 f;
@@ -152,7 +150,7 @@ void update_velocity_and_position(Body *bodies, int n){
     }
 }
 
-void save_results(Body *bodies, int n, char filename[100]){
+void save_results(Body *bodies, int n){
 
     #pragma omp critical
     {
@@ -195,9 +193,9 @@ int main(int argc, char *argv[]){
     
 //---------------------------------------------- 
     //init and print bodies
-    // Body bodies[n];
+    Body bodies[n];
 
-    Body *bodies = (Body *)malloc(N * sizeof(Body));
+    // Body *bodies = (Body *)malloc(N * sizeof(Body));
     init_bodies(bodies, n);
 
     //time measurement
@@ -219,13 +217,11 @@ int main(int argc, char *argv[]){
         calculate_parameters(bodies, n);
         update_velocity_and_position(bodies, n);
 
-        save_results(bodies, n, filename);
+        // save_results(bodies, n);
     }
     end_time = omp_get_wtime();
     total_time = end_time - start_time;
     printf("Total time: %f seconds\n", total_time);
-
-    free(bodies);
 
     return 0;
 }
