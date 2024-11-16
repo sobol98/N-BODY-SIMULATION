@@ -6,8 +6,10 @@ CUDA:
 - https://cuda-tutorial.readthedocs.io/en/latest/
 - https://developer.nvidia.com/blog/even-easier-introduction-cuda/
 - https://docs.nvidia.com/cuda/cuda-c-programming-guide/
+  
 OpenMP:
 - https://github-pages.ucl.ac.uk/research-computing-with-cpp/08openmp/02_intro_openmp.html
+
 Other:
 - https://en.wikipedia.org/wiki/N-body_problem
 - https://rosettacode.org/wiki/N-body_problem
