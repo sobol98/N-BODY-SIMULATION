@@ -29,7 +29,7 @@
 
 #define G 6.67430e-11
 #define DELTA_TIME 0.01 // time step in simulation time (in seconds)
-#define T_END 1000000 // how many seconds (in real time) the simulation will run
+#define T_END 10000 // how many seconds (in real time) the simulation will run
 // #define N 10 // number of bodies
 
 #define BLOCK_SIZE 256 //128, 256, 512, 1024 are common block sizes
@@ -235,25 +235,24 @@ int main(int argc, char **argv) {
     CUDACHECK(cudaMalloc(&d_bodies, n * sizeof(Body)));
     CUDACHECK(cudaMemcpy(d_bodies, h_bodies, n * sizeof(Body), cudaMemcpyHostToDevice));
 
-    int blockSize=BLOCK_SIZE;
-    int blocks = (n + blockSize - 1) / blockSize;
+    int blocks = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
 
-
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    cudaStream_t stream1, stream2;
+    cudaStreamCreate(&stream1);
+    cudaStreamCreate(&stream2);
 
 
 
     for (int iter = 0; iter < (T_END); iter++) {
-        calculate_parameters<<<blocks, blockSize, 0,stream>>>(d_bodies, n);
-        updateBodies<<<blocks, blockSize, 0, stream>>>(d_bodies, n);
+        calculate_parameters<<<blocks, BLOCK_SIZE, 0,stream1>>>(d_bodies, n);
+        updateBodies<<<blocks, BLOCK_SIZE, 0, stream2>>>(d_bodies, n);
      
         // CUDACHECK(cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyDeviceToHost));
         // save_results(h_bodies, n);
     }
-    cudaStreamSynchronize(stream);
-    cudaStreamDestroy(stream);
+    cudaStreamSynchronize(stream1);
+    cudaStreamSynchronize(stream2);
 
 
 
@@ -268,10 +267,13 @@ int main(int argc, char **argv) {
     printf("Time taken for execution: %f milliseconds\n", milliseconds);
 
     printf("Time taken for execution: %f seconds\n", (end_time - start_time) / CLOCKS_PER_SEC);
+    
     // Destroy CUDA events
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
+    cudaStreamDestroy(stream1);
+    cudaStreamDestroy(stream2);
   
     cudaFree(d_bodies);
     free(h_bodies);
