@@ -29,10 +29,10 @@
 
 #define G 6.67430e-11
 #define DELTA_TIME 0.01 // time step in simulation time (in seconds)
-#define T_END 1000000 // how many seconds (in real time) the simulation will run
+#define T_END 10000 // how many seconds (in real time) the simulation will run
 // #define N 10 // number of bodies
 
-#define BLOCK_SIZE 256 //128, 256, 512, 1024 are common block sizes
+#define BLOCK_SIZE 128 //128, 256, 512, 1024 are common block sizes
 
 
 // CUDA error checking

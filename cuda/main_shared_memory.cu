@@ -29,7 +29,7 @@
 
 #define G 6.67430e-11
 #define DELTA_TIME 0.01 // time step in simulation time (in seconds)
-#define T_END 1000000 // how many seconds (in real time) the simsulation will run
+#define T_END 10000 // how many seconds (in real time) the simsulation will run
 // #define N 10 // number of bodies
 
 #define BLOCK_SIZE 256 //128, 256, 512, 1024 are common block sizes
@@ -96,38 +96,44 @@ void initBodies(Body *bodies, int n) {
 __global__ void calculate_parameters(Body *bodies, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     
-    if (i < n) {
+    if (i >= n) return;
 
-        __shared__ Body shared_bodies[BLOCK_SIZE];
+    __shared__ Body shared_bodies[BLOCK_SIZE];
+    Body self_body = bodies[i];
 
-        if (threadIdx.x < n){
-            shared_bodies[threadIdx.x] = bodies[threadIdx.x + blockIdx.x * blockDim.x];
+    double3 f;
+    f.x =0.0f;
+    f.y =0.0f;
+    f.z =0.0f;
+    
+
+    for (int tile = 0; tile < (n + BLOCK_SIZE - 1) / BLOCK_SIZE; ++tile) {
+        int idx = tile * BLOCK_SIZE + threadIdx.x;
+        if (idx < n) {
+            shared_bodies[threadIdx.x] = bodies[idx];
         }
-
         __syncthreads();
 
-        double3 f;
-        f.x =0.0f;
-        f.y =0.0f;
-        f.z =0.0f;
-        
-        for (int j = 0; j < n; j++) {
-            if (i != j) {
-                double3 diff;
-                diff.x = shared_bodies[j].position.x - shared_bodies[i].position.x;
-                diff.y = shared_bodies[j].position.y - shared_bodies[i].position.y;
-                diff.z = shared_bodies[j].position.z - shared_bodies[i].position.z;
+        for (int j = 0; j < BLOCK_SIZE; ++j) {
+            int global_j = tile * BLOCK_SIZE + j;
+            if (global_j >= n || i == global_j) continue;
 
-                double dist = sqrtf(dot_product(diff)); //calculation of the length of the displacement vector (diagonal of 3 dimensions)
-                double forceMagnitude = G * shared_bodies[i].mass * shared_bodies[j].mass / (dist * dist + 1e-10f);  //+ 1e-10f -> prevent division by zero
-                
-                f.x += forceMagnitude * diff.x / dist;
-                f.y += forceMagnitude * diff.y / dist;
-                f.z += forceMagnitude * diff.z / dist;
-            }
+            double3 diff;
+            diff.x = shared_bodies[j].position.x - self_body.position.x;
+            diff.y = shared_bodies[j].position.y - self_body.position.y;
+            diff.z = shared_bodies[j].position.z - self_body.position.z;
+
+            double dist = sqrt(dot_product(diff));
+            double forceMagnitude = G * self_body.mass * shared_bodies[j].mass / (dist * dist + 1e-10);
+
+            f.x += forceMagnitude * diff.x / dist;
+            f.y += forceMagnitude * diff.y / dist;
+            f.z += forceMagnitude * diff.z / dist;
         }
-        bodies[i].force = f;
+        __syncthreads();
     }
+
+    bodies[i].force = f;
 }
 
 //CUDA kernel that updates the positions and velocities of each body based on the forces calculated.
@@ -244,20 +250,22 @@ int main(int argc, char **argv) {
     CUDACHECK(cudaMemcpy(d_bodies, h_bodies, n * sizeof(Body), cudaMemcpyHostToDevice));
 
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    cudaStream_t stream1, stream2;
+    cudaStreamCreate(&stream1);
+    cudaStreamCreate(&stream2);
 
 
     for (int iter = 0; iter < (T_END); iter++) {
-        calculate_parameters<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE,stream>>>(d_bodies, n);
-        updateBodies<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE, stream>>>(d_bodies, n);
+        calculate_parameters<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE,stream1>>>(d_bodies, n);
+        updateBodies<<<blocks, blockSize, sizeof(Body) * BLOCK_SIZE, stream2>>>(d_bodies, n);
 
         //to save
         // CUDACHECK(cudaMemcpy(h_bodies, d_bodies, n * sizeof(Body), cudaMemcpyDeviceToHost));
         // save_results(h_bodies, n);
     }
-    cudaStreamSynchronize(stream);
-    cudaStreamDestroy(stream);
+    cudaStreamSynchronize(stream1);
+    cudaStreamSynchronize(stream2);
+
 
     double end_time = clock();
 
@@ -272,9 +280,14 @@ int main(int argc, char **argv) {
     printf("Time taken for execution: %f milliseconds\n", milliseconds);
 
     printf("Time taken for execution: %f seconds\n", (end_time - start_time) / CLOCKS_PER_SEC);
+    
+    
     // Destroy CUDA events
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
+
+    cudaStreamDestroy(stream1);
+    cudaStreamDestroy(stream2);
 
     cudaFree(d_bodies);
     free(h_bodies);
